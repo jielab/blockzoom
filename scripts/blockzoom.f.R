@@ -1,5 +1,7 @@
 library(data.table)
 library(rhdf5)
+p_min <- 0
+p_max <- 12   # 按你原始 blockzoom 图的范围设置
 
 ld_path_for_chr = function(chr) {paste0(ld_dir, "/ldblk_", hapref, "_chr", chr, ".hdf5")}
 
@@ -449,22 +451,30 @@ myplot <- function(gwas, ld,
     }
   }
 
-  ## ---- Mb labels on block edges ----
-  for (i in 1:3){
-    boundary_label(i, alpha_start[i], blk_start[i]/1e6, rad_offset = 0.08)
-    boundary_label(i, alpha_end[i],   blk_end[i]/1e6,   rad_offset = 0.20)
+  ## ---- Mb range label (match original: "62.4-63.2 Mb") ----
+  range_label <- function(i, rad_offset = 0.22){
+    ang_mid <- (alpha_start[i] + alpha_end[i]) / 2
+    th <- sign_ang * ang_mid
+    
+    r_lab <- h1 + rad_offset
+    x <- sin(th) * r_lab
+    y <- cos(th) * r_lab
+    
+    lab <- sprintf("%.1f-%.1f Mb", blk_start[i]/1e6, blk_end[i]/1e6)
+    
+    text(x, y, labels = lab, cex = 0.8, col = "black", font = 2)
   }
+  
+  for (i in 1:3){
+    range_label(i, rad_offset = 0.22)
+  }
+  
 
-  ## ---- purple 5e-8 circle ----
-  thr   <- min(-log10(5e-8), scale_max)
-  r_thr <- r0 + (thr/scale_max)*(h2 - 0.05)
-  tt    <- seq(0, 2*pi, length.out = 361)
-  lines(sin(tt)*r_thr, cos(tt)*r_thr, col = "purple", lwd = 1.4)
-
-  ## ---- lightblue outer circle (max -log10(P)) ----
+  ## ---- red outer circle (match original figure) ----
+  tt <- seq(0, 2*pi, length.out = 361)
   Rmax <- r0 + h2
-  lines(sin(tt)*Rmax, cos(tt)*Rmax, col = "lightblue", lwd = 1.2)
-
+  lines(sin(tt)*Rmax, cos(tt)*Rmax, col = "red", lwd = 1.0)
+  
 ## ---- gene arcs (keep only 1 no-overlap curve per bin) ----
 if (!is.null(gene_df) && nrow(gene_df) > 0) {
   
@@ -550,20 +560,27 @@ if (!is.null(gene_df) && nrow(gene_df) > 0) {
 }
 
 
-  ## ---- LD colour legend bar on top ----
+  ## ---- LD colour legend bar on right (vertical) ----
   usr <- par("usr"); xr <- usr[1:2]; yr <- usr[3:4]
   w <- diff(xr); h <- diff(yr)
-  x0 <- xr[1] + 0.30*w
-  x1 <- xr[1] + 0.70*w
-  y1 <- yr[2] - 0.02*h
-  y0 <- y1 - 0.04*h
-  rect(x0, y0, x1, y1, border = "grey40", lwd = 0.6)
+  
+  # 右侧竖条位置：靠近右边界、居中偏上（接近你给的原版图）
+  x0 <- xr[2] - 0.10*w
+  x1 <- xr[2] - 0.06*w
+  y0 <- yr[1] + 0.55*h
+  y1 <- yr[1] + 0.95*h
+  
+  rect(x0, y0, x1, y1, border = "grey40", lwd = 0.8)
+  
   nstrip <- 180
-  xx <- seq(x0, x1, length.out = nstrip+1)
+  yy <- seq(y0, y1, length.out = nstrip + 1)
   cc <- colorRampPalette(col)(nstrip)
+  
+  # 从下到上：绿 -> 黄 -> 红（与你图一致）
   for (ii in seq_len(nstrip)){
-    rect(xx[ii], y0, xx[ii+1], y1, col = cc[ii], border = NA)
+    rect(x0, yy[ii], x1, yy[ii+1], col = cc[ii], border = NA)
   }
+  
 }
 
 ## ---------------------------------------------------------
@@ -597,7 +614,6 @@ block_plot <- function(gwas, block_id, LD, gene_df = NULL){
   myplot(gdf, ld_ord, h1 = 2, r = 0.06, gap = 0.2, block_ids = blk_ids, gene_df = gene_sub)
   invisible(NULL)
 }
-
 
 blockzoom <- function(gwas_file, block_id){
 
